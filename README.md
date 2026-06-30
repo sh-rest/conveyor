@@ -26,6 +26,22 @@ Client → POST /v1/events
         └── reclaim ticker  — every 30s, reclaims stale unACKed messages
 ```
 
+## Live Demo
+
+```
+https://conveyor-api-1inx.onrender.com
+```
+
+```bash
+# Health check
+curl https://conveyor-api-1inx.onrender.com/readyz
+
+# Create a project
+curl -X POST https://conveyor-api-1inx.onrender.com/v1/projects \
+  -H "Content-Type: application/json" \
+  -d '{"name":"my-project"}'
+```
+
 ## Prerequisites
 
 - Go 1.26+
