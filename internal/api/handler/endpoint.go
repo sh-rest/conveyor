@@ -39,6 +39,7 @@ type createEndpointRequest struct {
 	Description  string `json:"description"`
 	RateLimitRPS int32  `json:"rate_limit_rps"`
 	TimeoutMs    int32  `json:"timeout_ms"`
+	MaxRetries   *int32 `json:"max_retries"`
 }
 
 func (h *EndpointHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -60,6 +61,10 @@ func (h *EndpointHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.TimeoutMs == 0 {
 		req.TimeoutMs = 5000
 	}
+	if req.MaxRetries != nil && *req.MaxRetries < 0 {
+		respond.Error(w, http.StatusBadRequest, "max_retries must be >= 0")
+		return
+	}
 
 	secret, err := generateSecret()
 	if err != nil {
@@ -74,6 +79,7 @@ func (h *EndpointHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Secret:       secret,
 		RateLimitRps: req.RateLimitRPS,
 		TimeoutMs:    req.TimeoutMs,
+		MaxRetries:   req.MaxRetries,
 	})
 	if err != nil {
 		respond.Error(w, http.StatusInternalServerError, "failed to create endpoint")
@@ -152,6 +158,7 @@ type updateEndpointRequest struct {
 	IsActive     *bool   `json:"is_active"`
 	RateLimitRPS *int32  `json:"rate_limit_rps"`
 	TimeoutMs    *int32  `json:"timeout_ms"`
+	MaxRetries   *int32  `json:"max_retries"`
 }
 
 func (h *EndpointHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -178,6 +185,11 @@ func (h *EndpointHandler) Update(w http.ResponseWriter, r *http.Request) {
 		url = req.URL
 	}
 
+	if req.MaxRetries != nil && *req.MaxRetries < 0 {
+		respond.Error(w, http.StatusBadRequest, "max_retries must be >= 0")
+		return
+	}
+
 	endpoint, err := h.q.UpdateEndpoint(r.Context(), models.UpdateEndpointParams{
 		ID:           id,
 		ProjectID:    project.ID,
@@ -186,6 +198,7 @@ func (h *EndpointHandler) Update(w http.ResponseWriter, r *http.Request) {
 		IsActive:     req.IsActive,
 		RateLimitRps: req.RateLimitRPS,
 		TimeoutMs:    req.TimeoutMs,
+		MaxRetries:   req.MaxRetries,
 	})
 	if err != nil {
 		respond.Error(w, http.StatusNotFound, "endpoint not found")

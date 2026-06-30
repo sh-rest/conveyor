@@ -16,7 +16,14 @@ import (
 	"github.com/sh-rest/conveyor/internal/signing"
 )
 
-const maxAttempts = 7
+const defaultMaxAttempts = 7
+
+func effectiveMaxAttempts(maxRetries *int32) int {
+	if maxRetries == nil {
+		return defaultMaxAttempts
+	}
+	return int(*maxRetries) + 1 // retries + 1 = total attempts
+}
 
 // DispatcherQuerier is the DB interface the dispatcher depends on.
 type DispatcherQuerier interface {
@@ -160,7 +167,7 @@ func (d *Dispatcher) handleFailure(
 
 	// Permanent failures: 4xx (except 408 timeout and 429 rate-limited) → dead-letter immediately
 	isPermanent := httpStatus >= 400 && httpStatus < 500 && httpStatus != 408 && httpStatus != 429
-	isExhausted := int(details.AttemptNumber) >= maxAttempts-1
+	isExhausted := int(details.AttemptNumber) >= effectiveMaxAttempts(details.MaxRetries)-1
 
 	if isPermanent || isExhausted {
 		d.q.UpdateDeliveryFailed(ctx, models.UpdateDeliveryFailedParams{ //nolint

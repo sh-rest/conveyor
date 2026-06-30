@@ -1,0 +1,1 @@
+ALTER TABLE endpoints ADD COLUMN max_retries INT DEFAULT NULL;

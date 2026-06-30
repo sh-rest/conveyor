@@ -166,7 +166,7 @@ SELECT
     d.id, d.attempt_number, d.status,
     e.id AS event_id, e.payload, e.event_type,
     ep.id AS endpoint_id, ep.url, ep.secret,
-    ep.timeout_ms, ep.is_active, ep.rate_limit_rps
+    ep.timeout_ms, ep.is_active, ep.rate_limit_rps, ep.max_retries
 FROM deliveries d
 JOIN events e    ON e.id  = d.event_id
 JOIN endpoints ep ON ep.id = d.endpoint_id
@@ -187,6 +187,7 @@ type GetDeliveryWithDetailsRow struct {
 	TimeoutMs     int32          `json:"timeout_ms"`
 	IsActive      bool           `json:"is_active"`
 	RateLimitRps  int32          `json:"rate_limit_rps"`
+	MaxRetries    *int32         `json:"max_retries"`
 }
 
 // GetDeliveryWithDetails
@@ -195,7 +196,7 @@ type GetDeliveryWithDetailsRow struct {
 //	    d.id, d.attempt_number, d.status,
 //	    e.id AS event_id, e.payload, e.event_type,
 //	    ep.id AS endpoint_id, ep.url, ep.secret,
-//	    ep.timeout_ms, ep.is_active, ep.rate_limit_rps
+//	    ep.timeout_ms, ep.is_active, ep.rate_limit_rps, ep.max_retries
 //	FROM deliveries d
 //	JOIN events e    ON e.id  = d.event_id
 //	JOIN endpoints ep ON ep.id = d.endpoint_id
@@ -217,6 +218,7 @@ func (q *Queries) GetDeliveryWithDetails(ctx context.Context, id pgtype.UUID) (G
 		&i.TimeoutMs,
 		&i.IsActive,
 		&i.RateLimitRps,
+		&i.MaxRetries,
 	)
 	return i, err
 }
