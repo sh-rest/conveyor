@@ -6,6 +6,7 @@ sql:
       - "migrations/000001_init.up.sql"
       - "migrations/000002_events.up.sql"
       - "migrations/000003_deliveries.up.sql"
+      - "migrations/000004_delivery_attempts.up.sql"
     gen:
       go:
         package: "models"

@@ -24,6 +24,7 @@ type DispatcherQuerier interface {
 	UpdateDeliveryInFlight(ctx context.Context, id pgtype.UUID) (models.Delivery, error)
 	UpdateDeliverySuccess(ctx context.Context, arg models.UpdateDeliverySuccessParams) (models.Delivery, error)
 	UpdateDeliveryFailed(ctx context.Context, arg models.UpdateDeliveryFailedParams) (models.Delivery, error)
+	CreateDeliveryAttempt(ctx context.Context, arg models.CreateDeliveryAttemptParams) (models.DeliveryAttempt, error)
 }
 
 // RetryScheduler schedules a delivery for a future retry attempt.
@@ -127,6 +128,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, deliveryID string) {
 			ID:             id,
 			LastHttpStatus: &statusCode,
 		})
+		d.recordAttempt(ctx, id, details.AttemptNumber+1, &statusCode, nil, nil)
 		slog.Info("delivery succeeded", "delivery_id", deliveryID, "http_status", statusCode)
 		return
 	}
@@ -169,6 +171,7 @@ func (d *Dispatcher) handleFailure(
 			LastError:        errPtr,
 			NextAttemptAt:    pgtype.Timestamptz{},
 		})
+		d.recordAttempt(ctx, id, details.AttemptNumber+1, httpPtr, bodyPtr, errPtr)
 		slog.Warn("delivery dead-lettered",
 			"delivery_id", deliveryID,
 			"attempt", details.AttemptNumber,
@@ -190,6 +193,7 @@ func (d *Dispatcher) handleFailure(
 		LastError:        errPtr,
 		NextAttemptAt:    pgtype.Timestamptz{Time: nextAt, Valid: true},
 	})
+	d.recordAttempt(ctx, id, details.AttemptNumber+1, httpPtr, bodyPtr, errPtr)
 
 	if err := d.scheduler.Schedule(ctx, deliveryID, nextAt); err != nil {
 		slog.Error("failed to schedule retry — DB next_attempt_at is the fallback",
@@ -202,6 +206,18 @@ func (d *Dispatcher) handleFailure(
 		"next_at", nextAt.Format(time.RFC3339),
 		"http_status", httpStatus,
 	)
+}
+
+func (d *Dispatcher) recordAttempt(ctx context.Context, id pgtype.UUID, attemptNumber int32, httpStatus *int32, respBody *string, errMsg *string) {
+	if _, err := d.q.CreateDeliveryAttempt(ctx, models.CreateDeliveryAttemptParams{
+		DeliveryID:    id,
+		AttemptNumber: attemptNumber,
+		HttpStatus:    httpStatus,
+		ResponseBody:  respBody,
+		Error:         errMsg,
+	}); err != nil {
+		slog.Error("failed to record delivery attempt", "err", err)
+	}
 }
 
 // nextDelay returns a retry delay using exponential backoff with full jitter.

@@ -20,13 +20,15 @@ import (
 // --- hand-crafted mocks ---
 
 type mockQuerier struct {
-	details      models.GetDeliveryWithDetailsRow
-	detailsErr   error
-	inFlightErr  error
-	successCalled bool
-	successArg    models.UpdateDeliverySuccessParams
-	failedCalled  bool
-	failedArg     models.UpdateDeliveryFailedParams
+	details               models.GetDeliveryWithDetailsRow
+	detailsErr            error
+	inFlightErr           error
+	successCalled         bool
+	successArg            models.UpdateDeliverySuccessParams
+	failedCalled          bool
+	failedArg             models.UpdateDeliveryFailedParams
+	attemptCalled         bool
+	attemptArg            models.CreateDeliveryAttemptParams
 }
 
 func (m *mockQuerier) GetDeliveryWithDetails(_ context.Context, _ pgtype.UUID) (models.GetDeliveryWithDetailsRow, error) {
@@ -44,6 +46,11 @@ func (m *mockQuerier) UpdateDeliveryFailed(_ context.Context, arg models.UpdateD
 	m.failedCalled = true
 	m.failedArg = arg
 	return models.Delivery{}, nil
+}
+func (m *mockQuerier) CreateDeliveryAttempt(_ context.Context, arg models.CreateDeliveryAttemptParams) (models.DeliveryAttempt, error) {
+	m.attemptCalled = true
+	m.attemptArg = arg
+	return models.DeliveryAttempt{}, nil
 }
 
 type mockScheduler struct {
@@ -136,6 +143,8 @@ func TestDispatch_Success(t *testing.T) {
 	assert.True(t, q.successCalled)
 	assert.False(t, q.failedCalled)
 	assert.False(t, s.called)
+	assert.True(t, q.attemptCalled, "attempt should be recorded on success")
+	assert.Equal(t, int32(200), *q.attemptArg.HttpStatus)
 }
 
 func TestDispatch_SetsSignatureHeader(t *testing.T) {
@@ -212,6 +221,7 @@ func TestDispatch_RateLimited(t *testing.T) {
 	assert.Equal(t, int64(0), atomic.LoadInt64(&requestCount), "no HTTP request expected when throttled")
 	assert.False(t, q.successCalled)
 	assert.False(t, q.failedCalled)
+	assert.False(t, q.attemptCalled, "no attempt record for throttled delivery")
 }
 
 func TestDispatch_RateLimiterError_FailsOpen(t *testing.T) {
@@ -243,6 +253,8 @@ func TestDispatch_4xx_DeadLetter(t *testing.T) {
 	require.True(t, q.failedCalled)
 	assert.Equal(t, models.DeliveryStatusDeadLettered, q.failedArg.Status)
 	assert.False(t, s.called, "no retry scheduled for permanent 4xx")
+	assert.True(t, q.attemptCalled, "attempt should be recorded on failure")
+	assert.Equal(t, int32(404), *q.attemptArg.HttpStatus)
 }
 
 func TestDispatch_408_NotPermanent(t *testing.T) {
