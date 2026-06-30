@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/sh-rest/conveyor/internal/api/handler"
 	"github.com/sh-rest/conveyor/internal/config"
 	"github.com/sh-rest/conveyor/internal/db"
 	"github.com/sh-rest/conveyor/internal/models"
@@ -64,11 +65,13 @@ func main() {
 
 	// Render requires a bound port even for background workloads
 	go func() {
-		http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		})
-		if err := http.ListenAndServe(":"+cfg.Port, nil); err != nil {
-			slog.Error("healthz server error", "err", err)
+		mux.HandleFunc("/readyz", handler.NewHealthHandler(pool, rdb).Readyz)
+		if err := http.ListenAndServe(":"+cfg.Port, mux); err != nil {
+			slog.Error("health server error", "err", err)
 		}
 	}()
 
