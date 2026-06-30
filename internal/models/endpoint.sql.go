@@ -12,9 +12,9 @@ import (
 )
 
 const createEndpoint = `-- name: CreateEndpoint :one
-INSERT INTO endpoints (project_id, url, description, secret, rate_limit_rps, timeout_ms)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at
+INSERT INTO endpoints (project_id, url, description, secret, rate_limit_rps, timeout_ms, max_retries)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at, max_retries
 `
 
 type CreateEndpointParams struct {
@@ -24,13 +24,14 @@ type CreateEndpointParams struct {
 	Secret       string      `json:"secret"`
 	RateLimitRps int32       `json:"rate_limit_rps"`
 	TimeoutMs    int32       `json:"timeout_ms"`
+	MaxRetries   *int32      `json:"max_retries"`
 }
 
 // CreateEndpoint
 //
-//	INSERT INTO endpoints (project_id, url, description, secret, rate_limit_rps, timeout_ms)
-//	VALUES ($1, $2, $3, $4, $5, $6)
-//	RETURNING id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at
+//	INSERT INTO endpoints (project_id, url, description, secret, rate_limit_rps, timeout_ms, max_retries)
+//	VALUES ($1, $2, $3, $4, $5, $6, $7)
+//	RETURNING id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at, max_retries
 func (q *Queries) CreateEndpoint(ctx context.Context, arg CreateEndpointParams) (Endpoint, error) {
 	row := q.db.QueryRow(ctx, createEndpoint,
 		arg.ProjectID,
@@ -39,6 +40,7 @@ func (q *Queries) CreateEndpoint(ctx context.Context, arg CreateEndpointParams) 
 		arg.Secret,
 		arg.RateLimitRps,
 		arg.TimeoutMs,
+		arg.MaxRetries,
 	)
 	var i Endpoint
 	err := row.Scan(
@@ -51,6 +53,7 @@ func (q *Queries) CreateEndpoint(ctx context.Context, arg CreateEndpointParams) 
 		&i.RateLimitRps,
 		&i.TimeoutMs,
 		&i.CreatedAt,
+		&i.MaxRetries,
 	)
 	return i, err
 }
@@ -75,7 +78,7 @@ func (q *Queries) DeleteEndpoint(ctx context.Context, arg DeleteEndpointParams) 
 }
 
 const getEndpointByID = `-- name: GetEndpointByID :one
-SELECT id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at FROM endpoints
+SELECT id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at, max_retries FROM endpoints
 WHERE id = $1 AND project_id = $2
 LIMIT 1
 `
@@ -87,7 +90,7 @@ type GetEndpointByIDParams struct {
 
 // GetEndpointByID
 //
-//	SELECT id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at FROM endpoints
+//	SELECT id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at, max_retries FROM endpoints
 //	WHERE id = $1 AND project_id = $2
 //	LIMIT 1
 func (q *Queries) GetEndpointByID(ctx context.Context, arg GetEndpointByIDParams) (Endpoint, error) {
@@ -103,19 +106,20 @@ func (q *Queries) GetEndpointByID(ctx context.Context, arg GetEndpointByIDParams
 		&i.RateLimitRps,
 		&i.TimeoutMs,
 		&i.CreatedAt,
+		&i.MaxRetries,
 	)
 	return i, err
 }
 
 const listActiveEndpointsByProject = `-- name: ListActiveEndpointsByProject :many
-SELECT id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at FROM endpoints
+SELECT id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at, max_retries FROM endpoints
 WHERE project_id = $1 AND is_active = TRUE
 ORDER BY created_at DESC
 `
 
 // ListActiveEndpointsByProject
 //
-//	SELECT id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at FROM endpoints
+//	SELECT id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at, max_retries FROM endpoints
 //	WHERE project_id = $1 AND is_active = TRUE
 //	ORDER BY created_at DESC
 func (q *Queries) ListActiveEndpointsByProject(ctx context.Context, projectID pgtype.UUID) ([]Endpoint, error) {
@@ -137,6 +141,7 @@ func (q *Queries) ListActiveEndpointsByProject(ctx context.Context, projectID pg
 			&i.RateLimitRps,
 			&i.TimeoutMs,
 			&i.CreatedAt,
+			&i.MaxRetries,
 		); err != nil {
 			return nil, err
 		}
@@ -149,14 +154,14 @@ func (q *Queries) ListActiveEndpointsByProject(ctx context.Context, projectID pg
 }
 
 const listEndpointsByProject = `-- name: ListEndpointsByProject :many
-SELECT id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at FROM endpoints
+SELECT id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at, max_retries FROM endpoints
 WHERE project_id = $1
 ORDER BY created_at DESC
 `
 
 // ListEndpointsByProject
 //
-//	SELECT id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at FROM endpoints
+//	SELECT id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at, max_retries FROM endpoints
 //	WHERE project_id = $1
 //	ORDER BY created_at DESC
 func (q *Queries) ListEndpointsByProject(ctx context.Context, projectID pgtype.UUID) ([]Endpoint, error) {
@@ -178,6 +183,7 @@ func (q *Queries) ListEndpointsByProject(ctx context.Context, projectID pgtype.U
 			&i.RateLimitRps,
 			&i.TimeoutMs,
 			&i.CreatedAt,
+			&i.MaxRetries,
 		); err != nil {
 			return nil, err
 		}
@@ -196,9 +202,10 @@ SET
     description    = COALESCE($4, description),
     is_active      = COALESCE($5, is_active),
     rate_limit_rps = COALESCE($6, rate_limit_rps),
-    timeout_ms     = COALESCE($7, timeout_ms)
+    timeout_ms     = COALESCE($7, timeout_ms),
+    max_retries    = COALESCE($8, max_retries)
 WHERE id = $1 AND project_id = $2
-RETURNING id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at
+RETURNING id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at, max_retries
 `
 
 type UpdateEndpointParams struct {
@@ -209,6 +216,7 @@ type UpdateEndpointParams struct {
 	IsActive     *bool       `json:"is_active"`
 	RateLimitRps *int32      `json:"rate_limit_rps"`
 	TimeoutMs    *int32      `json:"timeout_ms"`
+	MaxRetries   *int32      `json:"max_retries"`
 }
 
 // UpdateEndpoint
@@ -219,9 +227,10 @@ type UpdateEndpointParams struct {
 //	    description    = COALESCE($4, description),
 //	    is_active      = COALESCE($5, is_active),
 //	    rate_limit_rps = COALESCE($6, rate_limit_rps),
-//	    timeout_ms     = COALESCE($7, timeout_ms)
+//	    timeout_ms     = COALESCE($7, timeout_ms),
+//	    max_retries    = COALESCE($8, max_retries)
 //	WHERE id = $1 AND project_id = $2
-//	RETURNING id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at
+//	RETURNING id, project_id, url, description, secret, is_active, rate_limit_rps, timeout_ms, created_at, max_retries
 func (q *Queries) UpdateEndpoint(ctx context.Context, arg UpdateEndpointParams) (Endpoint, error) {
 	row := q.db.QueryRow(ctx, updateEndpoint,
 		arg.ID,
@@ -231,6 +240,7 @@ func (q *Queries) UpdateEndpoint(ctx context.Context, arg UpdateEndpointParams) 
 		arg.IsActive,
 		arg.RateLimitRps,
 		arg.TimeoutMs,
+		arg.MaxRetries,
 	)
 	var i Endpoint
 	err := row.Scan(
@@ -243,6 +253,7 @@ func (q *Queries) UpdateEndpoint(ctx context.Context, arg UpdateEndpointParams) 
 		&i.RateLimitRps,
 		&i.TimeoutMs,
 		&i.CreatedAt,
+		&i.MaxRetries,
 	)
 	return i, err
 }

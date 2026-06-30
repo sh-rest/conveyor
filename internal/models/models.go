@@ -91,6 +91,7 @@ type Endpoint struct {
 	RateLimitRps int32              `json:"rate_limit_rps"`
 	TimeoutMs    int32              `json:"timeout_ms"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	MaxRetries   *int32             `json:"max_retries"`
 }
 
 type Event struct {

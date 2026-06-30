@@ -1,6 +1,6 @@
 -- name: CreateEndpoint :one
-INSERT INTO endpoints (project_id, url, description, secret, rate_limit_rps, timeout_ms)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO endpoints (project_id, url, description, secret, rate_limit_rps, timeout_ms, max_retries)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: GetEndpointByID :one
@@ -25,7 +25,8 @@ SET
     description    = COALESCE(sqlc.narg(description), description),
     is_active      = COALESCE(sqlc.narg(is_active), is_active),
     rate_limit_rps = COALESCE(sqlc.narg(rate_limit_rps), rate_limit_rps),
-    timeout_ms     = COALESCE(sqlc.narg(timeout_ms), timeout_ms)
+    timeout_ms     = COALESCE(sqlc.narg(timeout_ms), timeout_ms),
+    max_retries    = COALESCE(sqlc.narg(max_retries), max_retries)
 WHERE id = $1 AND project_id = $2
 RETURNING *;
 

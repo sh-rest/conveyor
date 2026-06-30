@@ -382,3 +382,62 @@ func TestDispatch_UpdateInFlightError(t *testing.T) {
 	assert.False(t, q.successCalled)
 	assert.False(t, q.failedCalled)
 }
+
+func ptr32(v int32) *int32 { return &v }
+
+func TestDispatch_ZeroRetries(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	defer srv.Close()
+
+	det := makeDetails(srv)
+	det.MaxRetries = ptr32(0) // 0 retries = 1 total attempt → dead-letter immediately
+	det.AttemptNumber = 0
+	q := &mockQuerier{details: det}
+	s := &mockScheduler{}
+	d := newDispatcher(q, s, &mockRateLimiter{allowed: true})
+	d.Dispatch(context.Background(), testDeliveryID)
+
+	require.True(t, q.failedCalled)
+	assert.Equal(t, models.DeliveryStatusDeadLettered, q.failedArg.Status, "MaxRetries=0 should dead-letter on first failure")
+	assert.False(t, s.called, "no retry scheduled when max_retries=0")
+}
+
+func TestDispatch_CustomMaxRetries_Exhausted(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	defer srv.Close()
+
+	det := makeDetails(srv)
+	det.MaxRetries = ptr32(2) // 2 retries = 3 total attempts; attempt 2 is the last
+	det.AttemptNumber = 2
+	q := &mockQuerier{details: det}
+	s := &mockScheduler{}
+	d := newDispatcher(q, s, &mockRateLimiter{allowed: true})
+	d.Dispatch(context.Background(), testDeliveryID)
+
+	require.True(t, q.failedCalled)
+	assert.Equal(t, models.DeliveryStatusDeadLettered, q.failedArg.Status, "should dead-letter when custom retries exhausted")
+	assert.False(t, s.called)
+}
+
+func TestDispatch_CustomMaxRetries_NotYetExhausted(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	defer srv.Close()
+
+	det := makeDetails(srv)
+	det.MaxRetries = ptr32(2) // 2 retries = 3 total attempts; attempt 1 still has retries left
+	det.AttemptNumber = 1
+	q := &mockQuerier{details: det}
+	s := &mockScheduler{}
+	d := newDispatcher(q, s, &mockRateLimiter{allowed: true})
+	d.Dispatch(context.Background(), testDeliveryID)
+
+	require.True(t, q.failedCalled)
+	assert.Equal(t, models.DeliveryStatusFailed, q.failedArg.Status, "attempt 1 of 3 should still retry")
+	assert.True(t, s.called, "retry should be scheduled")
+}
