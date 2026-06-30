@@ -16,6 +16,7 @@ type Handlers struct {
 	Event    *handler.EventHandler
 	Delivery *handler.DeliveryHandler
 	Metrics  *handler.MetricsHandler
+	Health   *handler.HealthHandler
 }
 
 func NewRouter(h Handlers, q *models.Queries) http.Handler {
@@ -29,6 +30,7 @@ func NewRouter(h Handlers, q *models.Queries) http.Handler {
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
+	r.Get("/readyz", h.Health.Readyz)
 
 	r.Post("/v1/projects", h.Project.Create)
 

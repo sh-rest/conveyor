@@ -61,6 +61,7 @@ func main() {
 		Event:    handler.NewEventHandler(q, producer),
 		Delivery: handler.NewDeliveryHandler(q, producer),
 		Metrics:  handler.NewMetricsHandler(q),
+		Health:   handler.NewHealthHandler(pool, rdb),
 	}
 
 	router := api.NewRouter(handlers, q)
