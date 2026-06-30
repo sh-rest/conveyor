@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS endpoints;
+DROP TABLE IF EXISTS projects;
+DROP EXTENSION IF EXISTS "pgcrypto";

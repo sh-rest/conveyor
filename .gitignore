@@ -1,0 +1,18 @@
+# binaries
+bin/
+
+# test coverage
+coverage.out
+coverage.html
+
+# env / secrets
+.env
+*.env
+
+# macOS
+.DS_Store
+
+# editor
+.idea/
+.vscode/
+*.swp
