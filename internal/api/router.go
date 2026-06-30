@@ -60,6 +60,7 @@ func NewRouter(h Handlers, q *models.Queries) http.Handler {
 		// Deliveries
 		r.Get("/v1/deliveries/dead-letter", h.Delivery.ListDeadLettered)
 		r.Post("/v1/deliveries/{id}/replay", h.Delivery.Replay)
+		r.Get("/v1/deliveries/{id}/attempts", h.Delivery.ListAttempts)
 
 		// Metrics
 		r.Get("/v1/metrics/summary", h.Metrics.Summary)

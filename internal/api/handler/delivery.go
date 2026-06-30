@@ -18,6 +18,7 @@ type DeliveryQuerier interface {
 	ListDeadLettered(ctx context.Context, arg models.ListDeadLetteredParams) ([]models.ListDeadLetteredRow, error)
 	GetDeliveryByID(ctx context.Context, id pgtype.UUID) (models.Delivery, error)
 	ResetDelivery(ctx context.Context, id pgtype.UUID) (models.Delivery, error)
+	ListAttemptsByDelivery(ctx context.Context, deliveryID pgtype.UUID) ([]models.DeliveryAttempt, error)
 }
 
 type DeliveryHandler struct {
@@ -118,4 +119,31 @@ func (h *DeliveryHandler) Replay(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respond.JSON(w, http.StatusAccepted, map[string]any{"delivery_id": uuidToString(delivery.ID)})
+}
+
+func (h *DeliveryHandler) ListAttempts(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.ProjectFromContext(r.Context())
+	if !ok {
+		respond.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var id pgtype.UUID
+	if err := id.Scan(chi.URLParam(r, "id")); err != nil {
+		respond.Error(w, http.StatusBadRequest, "invalid delivery id")
+		return
+	}
+
+	if _, err := h.q.GetDeliveryByID(r.Context(), id); err != nil {
+		respond.Error(w, http.StatusNotFound, "delivery not found")
+		return
+	}
+
+	attempts, err := h.q.ListAttemptsByDelivery(r.Context(), id)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to list attempts")
+		return
+	}
+
+	respond.JSON(w, http.StatusOK, map[string]any{"data": attempts})
 }
