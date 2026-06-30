@@ -28,18 +28,54 @@ Client → POST /v1/events
 
 ## Live Demo
 
-```
-https://conveyor-api-1inx.onrender.com
-```
+Base URL: `https://conveyor-api-1inx.onrender.com`
 
+### Full flow walkthrough
+
+**1. Check health**
 ```bash
-# Health check
 curl https://conveyor-api-1inx.onrender.com/readyz
+# → 200 OK
+```
 
-# Create a project
+**2. Create a project** — returns an API key
+```bash
 curl -X POST https://conveyor-api-1inx.onrender.com/v1/projects \
   -H "Content-Type: application/json" \
   -d '{"name":"my-project"}'
+# → {"id":"...","name":"my-project","api_key":"whk_live_..."}
+```
+
+**3. Register an endpoint** — where your webhooks will be delivered
+```bash
+curl -X POST https://conveyor-api-1inx.onrender.com/v1/endpoints \
+  -H "Authorization: Bearer whk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://httpbin.org/post","secret":"my-secret","rate_limit_rps":10,"timeout_ms":5000}'
+# → {"id":"...","url":"https://httpbin.org/post","is_active":true,...}
+```
+
+**4. Ingest an event** — triggers delivery fan-out to all active endpoints
+```bash
+curl -X POST https://conveyor-api-1inx.onrender.com/v1/events \
+  -H "Authorization: Bearer whk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"event_type":"order.created","payload":{"order_id":42}}'
+# → {"id":"<event-id>","event_type":"order.created",...}
+```
+
+**5. Check delivery status**
+```bash
+curl https://conveyor-api-1inx.onrender.com/v1/events/<event-id>/deliveries \
+  -H "Authorization: Bearer whk_live_..."
+# → {"data":[{"status":"delivered","last_http_status":200,"attempt_number":1,...}]}
+```
+
+**6. View metrics**
+```bash
+curl https://conveyor-api-1inx.onrender.com/v1/metrics/summary \
+  -H "Authorization: Bearer whk_live_..."
+# → {"delivered":1,"failed":0,"dead_lettered":0,"pending":0}
 ```
 
 ## Prerequisites
