@@ -2,7 +2,7 @@ MIGRATE=~/go/bin/migrate
 SQLC=~/go/bin/sqlc
 DB_URL=postgres://conveyor:conveyor@localhost:5432/conveyor?sslmode=disable
 
-.PHONY: up down migrate-up migrate-down sqlc build run-api run-worker tidy test test-integration test-all test-cover
+.PHONY: up down migrate-up migrate-down sqlc build run-api run-worker tidy test test-integration test-all test-cover docker-build
 
 up:
 	docker compose up -d
@@ -43,3 +43,7 @@ test-all: test test-integration
 test-cover:
 	go test -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
+
+docker-build:
+	docker build --build-arg BINARY=api    -t conveyor-api:latest    .
+	docker build --build-arg BINARY=worker -t conveyor-worker:latest .
