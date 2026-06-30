@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/sh-rest/conveyor/internal/models"
+	"github.com/sh-rest/conveyor/internal/respond"
 )
 
 type contextKey string
@@ -24,20 +25,20 @@ func Auth(q Querier) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				http.Error(w, `{"error":"missing Authorization header"}`, http.StatusUnauthorized)
+				respond.Error(w, http.StatusUnauthorized, "missing Authorization header")
 				return
 			}
 
 			// Expect: "Bearer whk_live_xxxx"
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) != 2 || parts[0] != "Bearer" {
-				http.Error(w, `{"error":"invalid Authorization format, expected: Bearer <key>"}`, http.StatusUnauthorized)
+				respond.Error(w, http.StatusUnauthorized, "invalid Authorization format, expected: Bearer <key>")
 				return
 			}
 
 			project, err := q.GetProjectByAPIKey(r.Context(), parts[1])
 			if err != nil {
-				http.Error(w, `{"error":"invalid API key"}`, http.StatusUnauthorized)
+				respond.Error(w, http.StatusUnauthorized, "invalid API key")
 				return
 			}
 
