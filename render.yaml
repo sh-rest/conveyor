@@ -1,0 +1,51 @@
+databases:
+  - name: conveyor-db
+    plan: free
+    databaseName: conveyor
+    user: conveyor
+
+services:
+  - type: redis
+    name: conveyor-redis
+    plan: free
+    maxmemoryPolicy: noeviction
+
+  - type: web
+    name: conveyor-api
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerBuildArgs:
+      BINARY: api
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: conveyor-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: conveyor-redis
+          property: connectionString
+      - key: PORT
+        value: "8080"
+      - key: API_KEY_PREFIX
+        value: whk_live_
+
+  - type: worker
+    name: conveyor-worker
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerBuildArgs:
+      BINARY: worker
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: conveyor-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: conveyor-redis
+          property: connectionString
