@@ -17,6 +17,7 @@ type Handlers struct {
 	Delivery *handler.DeliveryHandler
 	Metrics  *handler.MetricsHandler
 	Health   *handler.HealthHandler
+	Verify   *handler.VerifyHandler
 }
 
 func NewRouter(h Handlers, q *models.Queries) http.Handler {
@@ -62,6 +63,9 @@ func NewRouter(h Handlers, q *models.Queries) http.Handler {
 
 		// Metrics
 		r.Get("/v1/metrics/summary", h.Metrics.Summary)
+
+		// Signature verification
+		r.Post("/v1/verify", h.Verify.Verify)
 	})
 
 	return r
