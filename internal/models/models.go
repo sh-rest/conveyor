@@ -71,6 +71,16 @@ type Delivery struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
+type DeliveryAttempt struct {
+	ID            pgtype.UUID        `json:"id"`
+	DeliveryID    pgtype.UUID        `json:"delivery_id"`
+	AttemptNumber int32              `json:"attempt_number"`
+	HttpStatus    *int32             `json:"http_status"`
+	ResponseBody  *string            `json:"response_body"`
+	Error         *string            `json:"error"`
+	AttemptedAt   pgtype.Timestamptz `json:"attempted_at"`
+}
+
 type Endpoint struct {
 	ID           pgtype.UUID        `json:"id"`
 	ProjectID    pgtype.UUID        `json:"project_id"`
