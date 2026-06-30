@@ -31,7 +31,7 @@ services:
       - key: API_KEY_PREFIX
         value: whk_live_
 
-  - type: worker
+  - type: web
     name: conveyor-worker
     env: docker
     plan: free

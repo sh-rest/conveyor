@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -60,6 +61,16 @@ func main() {
 	limiter := ratelimit.NewLimiter(rdb)
 	dispatcher := worker.NewDispatcher(q, scheduler, limiter)
 	workerPool := worker.NewPool(dispatcher, consumer, scheduler, cfg.WorkerCount)
+
+	// Render requires a bound port even for background workloads
+	go func() {
+		http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+		if err := http.ListenAndServe(":"+cfg.Port, nil); err != nil {
+			slog.Error("healthz server error", "err", err)
+		}
+	}()
 
 	slog.Info("worker starting", "concurrency", cfg.WorkerCount)
 	workerPool.Start(ctx, cfg.WorkerCount)
